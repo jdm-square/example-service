@@ -9,9 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1.4.1
+      - uses: actions/setup-node@v2
         with:
-          node-version: "15.10.0"
+          node-version: "15"
       - name: npm install
         run: npm install -g openapi-comment-parser
       - name: Generate docs
