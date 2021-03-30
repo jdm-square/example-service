@@ -1,0 +1,310 @@
+---
+components:
+  securitySchemes:
+    clientKey:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Prefix the {CLIENT_ID} and {API_KEY} values with \"Client\" to indicate
+        the custom authorization type'
+      x-default: "Client {CLIENT_ID} {API_KEY}"
+    accessToken:
+      type: http
+      scheme: bearer
+  schemas:
+    Alias:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'The type of alias this represents.
+
+                        Options include: CASHTAG, EMAIL, SMS'
+          enum:
+            - CASHTAG
+            - EMAIL
+            - SMS
+        value:
+          type: string
+          description: The value of the alias. Phone numbers are in E.164 format.
+    Customer:
+      type: object
+      description: 'Customers represent Cash App users. They use Cash App on their smartphones
+        for various financial tasks like transferring funds to peers, retail payments, and
+        purchasing of equities.'
+      properties:
+        full_name:
+          type: string
+          description: The full name of the user
+        country_code:
+          type: string
+          description: The ISO 3166-1 alpha-2 code for the country the user is associated to
+        aliases:
+          type: array
+          description: A list of all aliases associated to the user.
+          items:
+            $ref: '#/components/schemas/Alias'
+        profile_photo_url:
+          type: string
+          description: URL to fetch the user's profile photo
+    Merchant:
+      type: object
+      description: 'Merchants do not have access to Cash App but are instead used to represent a
+        brand and depository account when processing payments from Cash App users. A Cash App-held
+        depository account (in the currency and country) is automatically created for the Merchant.
+        Processed payments are stored in this account until they are ready for settlement.'
+      required:
+        - business_name
+        - country_code
+        - currency
+      properties:
+        id:
+          type: string
+          description: A unique identifier for this merchant
+        business_name:
+          type: string
+          description: The customer-facing name of the business
+        country_code:
+          type: string
+          description: The alpha-2 code for the country the merchant operates in.
+        currency:
+          type: string
+          description: The alpha-3 code for the currency the merchant operates with.
+        category:
+          type: string
+          description: The merchant category code (a four-digit number listed in ISO 18245).
+    Refund:
+      type: object
+      description: The refund object provides the status of a refund associated to a [payment](doc:payment)
+      properties:
+        id:
+          type: string
+          description: A unique identifier for the refund
+        payment_id:
+          type: string
+          description: The identifier of the payment this refund is associated to
+        amount:
+          type: string
+          description: 'Smallest divisible unit of currency for a given locale, scaled by the default number of decimal places for the currency.
+
+                        Example: 1.00 USD -> 100'
+        currency:
+          type: string
+          description: The ISO-4217 alpha-3 code for the refund currency
+        state:
+          type: string
+          description: 'The state of this refund.
+
+            Options include AUTHORIZED, CAPTURED, VOIDED, DECLINED'
+          enum:
+            - AUTHORIZED
+            - CAPTURED
+            - VOIDED
+            - DECLINED
+    Payment:
+      type: object
+      description: The payment object provides the payment definition and a snapshot of the payment state.
+      properties:
+        id:
+          type: string
+          description: a unique identifier for the payment
+        customer:
+          description: The Cash App user (buyer)
+          $ref: '#/components/schemas/Customer'
+        merchant:
+          description: 'The merchant involved in the transaction.
+
+                        NOTE: Only the merchant id will be populated.'
+          $ref: '#/components/schemas/Merchant'
+        amount:
+          type: integer
+          description: 'Smallest divisible unit of currency for a given locale, scaled by the default number of decimal places for the currency.
+
+            Example: 1.00 USD -> 100'
+        currency:
+          type: string
+          description: The ISO-4217 alpha-3 code for the payment currency
+        state:
+          type: string
+          description: 'The state of this payment.
+
+            Options include AUTHORIZED, CAPTURED, VOIDED, DECLINED'
+          enum:
+            - AUTHORIZED
+            - CAPTURED
+            - VOIDED
+            - DECLINED
+        refunded_amount:
+          type: integer
+          description: The total amount (in the currency of the payment) of all authorized refunds related to this payment.
+        refunds:
+          type: array
+          description: A set of refunds associated to this payment.
+          items:
+            $ref: '#/components/schemas/Refund'
+    CustomerResponse:
+      type: object
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+    MerchantRequest:
+      type: object
+      properties:
+        merchant:
+          $ref: '#/components/schemas/Merchant'
+    MerchantResponse:
+      type: object
+      properties:
+        merchant:
+          $ref: '#/components/schemas/Merchant'
+    Scope:
+      type: object
+      properties:
+        scope:
+          type: string
+          description: The scope type (eg. PAYMENT)
+        data:
+          type: object
+          description: Any additional context for the scope
+          additionalProperties: true
+    AuthorizationRequest:
+      type: object
+      required:
+        - scopes
+      properties:
+        scopes:
+          type: array
+          description: A list of [scopes](doc:scopes) requested from the customer
+          items:
+            $ref: '#/components/schemas/Scope'
+        state:
+          type: string
+          description: An opaque value used by the client to maintain state between
+            request and callback.
+        customer_descriptor:
+          type: string
+          description: A short descriptor visible in Cash App for "$Cashtag on File"
+            experiences
+        redirect_url:
+          type: string
+          description: A uri used to redirect the customer's user-agent after the
+            customer approves or denies the app integration.
+    AccessTokenRequest:
+      type: object
+      required:
+        - scopes
+      properties:
+        scopes:
+          type: array
+          description: 'The permissions being requested on the access-token for use by the
+            application. This must be a subset of the scopes requested in during authorization.'
+          items:
+            $ref: '#/components/schemas/Scope'
+        authorization_code:
+          type: string
+          description: 'A temporary authorization grant, used to exchange for an access
+            and refresh token. NOTE: Cannot be combined with `refresh_token`'
+        refresh_token:
+          type: string
+          description: 'A permanent, revokable authorization grant, used to generate
+            refresh tokens without customer intervention. NOTE: Cannot be combined
+            with `authorization_code`'
+    AuthorizationResponse:
+      type: object
+      properties:
+        redirect_url:
+          type: string
+          description: A Cash url to redirect the customer to the Application approval
+            flow.
+        qr_url:
+          type: string
+          description: A Cash URL used to render a QR code image (PNG format)
+        expires_in:
+          type: integer
+          nullable: true
+          description: The lifetime  of this authorization flow in seconds. Null indicates
+            that it does not expire.
+    AccessTokenResponse:
+      type: object
+      properties:
+        customer_id:
+          type: string
+          description: An auto-generated id to represent the newly authorized customer.
+        refresh_token:
+          type: string
+          description: A long-lived resource credential that can be used to obtain
+            new access tokens. [RFC-6749](https://tools.ietf.org/html/rfc6749#section-1.5)
+        access_token:
+          type: string
+          description: A short-lived authentication token that will authorize actions
+            taken on a resource based on the scopes granted by the resource owner.
+            [RFC-6749](https://tools.ietf.org/html/rfc6749#section-1.4)
+        expires_in:
+          type: integer
+          description: The expiry duration of the access token (in seconds)
+    CapturePaymentResponse:
+      type: object
+      properties:
+        payment:
+          $ref: '#/components/schemas/Payment'
+    CreatePaymentRequest:
+      type: object
+      required:
+        - request_id
+        - merchant
+        - amount
+        - currency
+        - capture
+      properties:
+        request_id:
+          type: string
+          description: a unique identifier used for processing idempotent retries
+        merchant:
+          $ref: '#/components/schemas/Merchant'
+        amount:
+          type: integer
+          format: int64
+          description: 'the amount of of currency in the smallest-denomination unit available.
+            (ex. amount = 100 for $1 USD, where the smallest unit is a cent)'
+        currency:
+          type: string
+          description: the currency code (3 digit format from ISO 4217)
+        capture:
+          type: boolean
+          description: should the payment automatically capture after authorizing
+    CreatePaymentResponse:
+      type: object
+      properties:
+        payment:
+          description: 'A Payment object, defined in the Domain Objects section of this document.
+
+            NOTE: the domain object will only populate data based on the scopes the customer has authorized.'
+          $ref: '#/components/schemas/Payment'
+    GetPaymentResponse:
+      type: object
+      properties:
+        payment:
+          description: 'A Payment object, defined in the Domain Objects section of this document.
+
+            NOTE: the domain object will only populate data based on the scopes the customer has authorized.'
+          $ref: '#/components/schemas/Payment'
+    RefundPaymentRequest:
+      type: object
+      required:
+        - request_id
+        - payment_id
+      properties:
+        request_id:
+          type: string
+          description: a unique identifier used for processing idempotent retries
+        payment_id:
+          type: string
+          description: a payment id (or the original request_id of the payment)
+    RefundPaymentResponse:
+      type: object
+      properties:
+        payment:
+          description: 'A Payment object, defined in the Domain Objects section of this document.
+
+            NOTE: the domain object will only populate data based on the scopes the customer has authorized.'
+          $ref: '#/components/schemas/Payment'

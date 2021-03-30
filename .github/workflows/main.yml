@@ -9,10 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1.4.1
+        with:
+          node-version: "15.10.0"
+      - name: npm install
+        run: npm install -g openapi-comment-parser
+      - name: Generate docs
+        run: openapi-comment-parser . openapi.json
       - uses: readmeio/github-readme-sync@v2
         with:
           readme-oas-key: NRc98Payo3vHOhPX3DBlLstlMPvfsl0R:60524a0052b171ba2224456d
-           
+
           # OPTIONAL CONFIG, use if necessary
           # oas-file-path: './swagger.json'
           # api-version: 'v1.0.0'
